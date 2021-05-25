@@ -1,5 +1,5 @@
 <template>
-    <q-page class="flex">
+  <div class="q-mt-md">
       <q-layout view="lHh Lpr lFf" class="WAL__layout shadow-3" style="height: 800px" container>
         <q-header elevated>
           <q-toolbar>
@@ -10,7 +10,7 @@
             </q-btn>
 
             <q-toolbar-title class="q-subtitle-1 q-pl-md">
-              {{ currentConversation.name }}
+              {{ currentConversation.nickname || currentConversation.name }}
             </q-toolbar-title>
 
             <q-btn round flat icon="search" />
@@ -44,13 +44,6 @@
             bordered
             :breakpoint="700"
         >
-          <q-toolbar class="bg-grey-2">
-            <q-input rounded outlined dense class="WAL__field full-width" bg-color="white" v-model="search" placeholder="搜索消息">
-              <template slot="prepend">
-                <q-icon name="search" />
-              </template>
-            </q-input>
-          </q-toolbar>
 
           <q-scroll-area style="height: calc(100% - 100px)">
             <q-list>
@@ -71,22 +64,23 @@
                   </q-item-label>
                   <q-item-label class="conversation__summary" caption>
                     <q-icon name="check" v-if="group.isRead"/>
-                    {{ group.lastMessage }}
+                    {{ lastGroupMsg || '' }}
                   </q-item-label>
                 </q-item-section>
 
                 <q-item-section side>
                   <q-item-label caption>
-                    {{ group.updateTime }}
+                    {{ lastGroupTime || '' }}
                   </q-item-label>
                   <q-icon name="keyboard_arrow_down" />
                 </q-item-section>
 
               </q-item>
+
               <!-- 组员私聊 -->
               <q-item
-                  v-for="(member, index) in members"
-                  :key="member.id"
+                  v-for="(member, index) in friends"
+                  :key="index"
                   clickable
                   @click="currentConversationIndex = index"
               >
@@ -98,17 +92,17 @@
 
                 <q-item-section>
                   <q-item-label lines="1">
-                    {{ member.name }}
+                    {{ member.nickname }}
                   </q-item-label>
                   <q-item-label class="conversation__summary" caption>
                     <q-icon name="check" v-if="member.isRead"/>
-                    {{ member.lastMessage }}
+                    {{ lastMsgs[index] || '' }}
                   </q-item-label>
                 </q-item-section>
 
                 <q-item-section side>
                   <q-item-label caption>
-                    {{ member.updateTime }}
+                    {{ lastTimes[index] || '' }}
                   </q-item-label>
                   <q-icon name="keyboard_arrow_down" />
                 </q-item-section>
@@ -118,16 +112,16 @@
 
         </q-drawer>
 
-        <!-- 聊天主界面 -->
+        <!-- 聊天主界面(主内容) -->
         <q-page-container class="bg-grey-2">
           <q-page class="q-pa-md">
-            <div v-for="(message, index) in messages" :key="index">
+            <div v-for="(message, index) in currentMsgBox" :key="index">
               <q-chat-message
-                  :name="message.name"
-                  :avatar="message.avatar"
-                  :text="[message.message]"
+                  :name="members[hashMember[message.userId]].nickname"
+                  :avatar="members[hashMember[message.userId]].avatar"
+                  :text="[message.msg]"
                   :stamp="message.time"
-                  :sent="message.id === 1"
+                  :sent="message.userId !== user.id"
               />
             </div>
           </q-page>
@@ -137,91 +131,140 @@
           <q-toolbar class="bg-grey-3 text-black row">
             <q-btn round flat icon="insert_emoticon" class="q-mr-sm" />
             <q-input rounded outlined dense class="WAL__field col-grow q-mr-sm" bg-color="white" v-model="message" placeholder="Type a message" />
-            <q-btn round flat icon="mic" />
+            <q-btn round flat icon="mic" @click="send"/>
           </q-toolbar>
         </q-footer>
-
       </q-layout>
-    </q-page>
+  </div>
 </template>
 
 <script>
+
 export default {
   name: "ChatPage",
-
   data() {
     return {
       currentConversationIndex: 0,
       left: true,
+      // 除去自己的表现层
+      nowTime: new Date(),
+      friends: [],
       search: '',
       message: '',
-      group: {
-        name: "小组1",
-        avatar: "https://syameimarukibou.github.io/img/logo.png",
-        lastMessage: 'see you later',
-        updateTime: '16:00',
-        isRead: true
-      },
-      messages: [
-        {
-          id: 1,
-          name: 'Kibou',
-          avatar: 'https://syameimarukibou.github.io/img/logo.png',
-          time: '15:00',
-          message: '我会尽快处理'
-        },
-        {
-          id: 2,
-          name: 'Linus Torvalds',
-          avatar: 'https://cdn.quasar.dev/img/avatar4.jpg',
-          time: '15:01',
-          message: '好的'
-        },
-        {
-          id: 3,
-          name: 'Yamada Suzuki',
-          avatar: 'https://cdn.quasar.dev/img/avatar5.jpg',
-          time: '15:02',
-          message: 'OK👍'
-        },
-      ],
-      members: [
-        {
-          id: 2,
-          name: 'Linus Torvalds',
-          avatar: 'https://cdn.quasar.dev/img/avatar4.jpg',
-          state: 'online',
-          lastMessage: 'see you later',
-          updateTime: '16:00',
-          isRead: true
-        },
-        {
-          id: 3,
-          name: 'Yamada Suzuki',
-          avatar: 'https://cdn.quasar.dev/img/avatar5.jpg',
-          state: 'online',
-          lastMessage: 'see you later',
-          updateTime: '16:00',
-          isRead: true
-        }
-      ]
+      hashMember: [],
+      hashFriend: [],
+      groupMsgNum: 0,
+      totMsgNum: 0,
+      memMsgNums: [],
+      // 所有消息的容器
+      groupMsgList: [],
+      msgList: [[]],
+      lastMsgs: [],
+      lastGroupMsg: '',
+      lastTimes: [],
+      lastGroupTime: '',
+
     }
   },
-  sendMsg() {
-    // 向父组件（的io-client）传值发送消息
-    this.$emit()
+  // 监听事件列表
+  sockets: {
+    // 监听单聊事件
+    p2pchat: function (data) {
+      console.log(data)
+      // 向表示层的数据中压入数据
+      this.msgList[this.hashFriend[data.userId]].push(data)
+      console.log(this.msgList)
+    },
+    groupchat: function (data) {
+      console.log(data)
+      // 向表示层的数据中压入数据，如果是自己发送的消息那么不发送
+      if(data.userId !== this.user.id) this.groupMsgList.push(data)
+      console.log(this.groupMsgList)
+    }
+  },
+  props: {
+    // 从父组件获取的基本信息
+    user: Object,
+    group: Object,
+    members: Array
+  },
+  created() {
   },
 
+  mounted() {
+
+  },
+  watch: {
+    members: function() {
+      this.initializeMsg()
+    }
+  },
   computed: {
     currentConversation() {
       if (this.currentConversationIndex === -1)
         return this.group
-      return this.members[this.currentConversationIndex]
+      return this.friends[this.currentConversationIndex]
     },
     style () {
       return {
         height: this.$q.screen.height + 'px'
       }
+    },
+    lastUpdateTime() {
+      if (this.currentConversationIndex === -1) {
+        if (this.groupMsgNum === 0) return ''
+        return this.msgList[0].time
+      } else {
+        if (this.memMsgNums[this.currentConversationIndex] === 0) return ''
+        return this.msgList[this.currentConversationIndex].time
+      }
+    },
+    currentMsgBox() {
+      let idx = this.currentConversationIndex
+      return idx === -1 ? this.groupMsgList : this.msgList[idx]
+    }
+  },
+  methods: {
+    initializeMsg() {
+      // 更新friends信息
+      this.friends = this.members.filter(function (member)  {
+        return member.id != window.sessionStorage.getItem("loginId")
+      })
+      for (let i = 0; i < this.members.length; i++) {
+        this.hashMember[this.members[i].id] = i
+      }
+      // 创建的映射，并初始化消息容器
+      for (let i = 0; i < this.friends.length; i++) {
+        //创建 userid -> messageList 的映射
+        this.hashFriend[this.friends[i].id] = i
+        this.msgList[i] = []
+        this.memMsgNums[i] = 0
+      }
+    },
+
+    send() {
+      let idx = this.currentConversationIndex
+      if (idx === -1) {
+        let data = {userId: this.user.id, msg: this.message.slice(0), to: 0, time: this.codeTime()}
+        this.groupMsgList.push(data)
+        this.$socket.emit('groupchat',data)
+      } else {
+        let data = {userId: this.user.id, msg: this.message.slice(0), to: this.friends[idx].id, time: this.codeTime()}
+        this.msgList[idx].push(data)
+        this.$socket.emit('p2pchat',data)
+      }
+      this.message = ''
+    },
+    notifyMsg(message) {
+      this.$q.notify({message: message, color: 'purple'})
+    },
+    getUser(id) {
+      return this.friends[this.hashMember[id]]
+    },
+
+    codeTime() {
+      let now = new Date()
+      return "" + now.getHours() + ":" + now.getMinutes();
     }
   }
 }

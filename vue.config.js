@@ -3,6 +3,9 @@ module.exports = {
     'vuetify',
     'quasar'
   ],
+  css: {
+    extract: false
+  },
 
   pluginOptions: {
     quasar: {

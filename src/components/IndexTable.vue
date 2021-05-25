@@ -52,9 +52,16 @@
     </q-drawer>
 
     <q-page-container>
-      <home-page :user="userInfo" v-show="menuIndex === 0"/>
-      <chat-page v-show="menuIndex === 3"/>
-      <project-page v-show="menuIndex === 2"/>
+      <!--  -->
+      <q-page>
+        <div class="q-mt-md">
+          <home-page :user="userInfo" :group="groupInfo" :members="members" v-show="menuIndex === 0"/>
+          <InformationPage :user="userInfo" :group="groupInfo" :members="members" v-show="menuIndex === 1"/>
+          <project-page v-show="menuIndex === 2"/>
+          <chat-page :user="userInfo" :group="groupInfo" :members="members" v-show="menuIndex === 3"/>
+
+        </div>
+      </q-page>
     </q-page-container>
   </q-layout>
 </template>
@@ -63,10 +70,11 @@
 import ChatPage from "./ChatPage";
 import HomePage from "./HomePage";
 import ProjectPage from "./ProjectPage";
+import InformationPage from "./InformationPage";
 
 export default {
   name: "IndexTable",
-  components: {ProjectPage, HomePage, ChatPage},
+  components: {InformationPage, ProjectPage, HomePage, ChatPage},
   data () {
     return {
       drawer: false,
@@ -81,8 +89,8 @@ export default {
         },
         {
           icon: 'assessment',
-          label: '团队信息',
-          path: '/routine',
+          label: '通知与任务',
+          path: '/tasks',
           separator: false
         },
         {
@@ -98,6 +106,12 @@ export default {
           separator: true
         },
         {
+          icon: 'file',
+          label: '文件',
+          path: '/file',
+          separator: false
+        },
+        {
           icon: 'settings',
           label: '个人设置',
           separator: false
@@ -108,29 +122,80 @@ export default {
           separator: false
         }
       ],
+      hash: [],
       userInfo: {
-
       },
       groupInfo: {
-
-      }
+      },
+      members: [
+        {id: 0,name: '用户加载中...',avatar: 'https://cdn.quasar.dev/img/avatar4.jpg',role: 1, state: 0}
+      ]
     }
   },
+  // sockets 监听列表
+  sockets: {
+    connect: function () {
+      //this.notifyMsg('connected')
+      console.log('connected')
+    },
+    // 刷新在线用户状态
+    users: function (data) {
+      this.members.forEach(function (item) {
+        if(item.id != window.sessionStorage.getItem("loginId")) item.state = 0
+      })
+      console.log(data)
+      for (let id of data) {
+        this.members.forEach(function (item) {
+          if (item.id === id) item.state = 1
+        })
+      }
+      console.log(this.members)
+    }
+  },
+  created() {
+    this.init()
+    this.updateOnlineState()
 
+  },
   mounted() {
+
   },
   methods: {
     // 切换窗口显示菜单
     switchIndex(index) {
       this.menuIndex = index;
     },
-    /*
-    startSocketClient() {
-      this.socket = io(process.env.SOCKETIO_URL || "/")
+    init() {
+      let id = window.sessionStorage.getItem('loginId')
+      this.$http({
+        url: this.$http.adornUrl('/user/getUserFullInfo'),
+        method: 'get',
+        params: {id: id}
+      }).then(({data}) => {
+        if (data && data.code === 200) {
+          console.log(data)
+          this.userInfo = data.user
+          this.groupInfo = data.group
+          this.members = data.member
+          this.modifyData()
+          this.register()
+          this.updateOnlineState()
+        } else {
+          this.$q.notify({type: 'negative', message: '异常:' + data.msg , position: 'top'})
+        }
+      })
+    },
+    register() {
+      this.$socket.emit('register',{userId: this.userInfo.id, groupId: this.groupInfo.id})
+    },
+    updateOnlineState() {
+      this.$socket.emit('checkOnlineUsers',{id: this.groupInfo.id})
+    },
+    modifyData() {
+      for (let i = 0; i < this.members.length;i++) {
+        this.$set(this.members[i], "state", 0)
+      }
     }
-
-    */
-
   }
 
 

@@ -1,5 +1,4 @@
 <template>
-  <q-page>
     <div class="q-mt-md row q-px-sm">
       <!-- 左侧板块 -->
       <div class="col-8 q-mb-md q-px-sm">
@@ -95,7 +94,7 @@
               </q-item-section>
 
               <q-item-section>
-                <q-item-label>{{ item.name }}</q-item-label>
+                <q-item-label>{{ item.nickname }}</q-item-label>
                 <q-item-label caption lines="1">{{
                     item.position
                   }}
@@ -104,7 +103,7 @@
 
               <q-item-section side>
                 <q-chip
-                    v-if="item.state === 0"
+                    v-if="item.state === 1"
                     outline
                     square
                     color="blue"
@@ -113,7 +112,7 @@
                     style="width: 56px"
                 />
                 <q-chip
-                    v-if="item.state === 1"
+                    v-else
                     outline
                     square
                     color="red"
@@ -171,14 +170,15 @@
         </q-card>
       </div>
     </div>
-  </q-page>
 </template>
 
 <script>
 export default {
   name: "HomePage",
   props: {
-    user: Object
+    user: Object,
+    group: Object,
+    members: Array
   },
   data() {
     return {
@@ -231,27 +231,6 @@ export default {
           title: 'img_source.zip',
           date: '2021-04-20 13:30'
         }
-      ],
-
-      members: [
-        {
-          name: 'Linus Torvalds',
-          avatar: 'https://cdn.quasar.dev/img/avatar4.jpg',
-          position: 'Leader',
-          state: 1
-        },
-        {
-          name: 'Yamada Suzuki',
-          avatar: 'https://cdn.quasar.dev/img/avatar5.jpg',
-          position: '前端开发',
-          state: 0
-        },
-        {
-          name: 'Kibou Syameimaru',
-          avatar: 'https://syameimarukibou.github.io/img/logo.png',
-          position: '后台开发',
-          state: 1
-        },
       ],
 
       events: [
